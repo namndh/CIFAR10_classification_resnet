@@ -1,0 +1,44 @@
+model 1:
+Net(
+  (conv1): Conv2d(3, 6, kernel_size=(5, 5), stride=(1, 1))
+  (pool): MaxPool2d(kernel_size=(2, 2), stride=(2, 2), dilation=(1, 1), ceil_mode=False)
+  (conv2): Conv2d(6, 16, kernel_size=(5, 5), stride=(1, 1))
+  (fc1): Linear(in_features=400, out_features=120, bias=True)
+  (fc2): Linear(in_features=120, out_features=84, bias=True)
+  (fc3): Linear(in_features=84, out_features=10, bias=True)
+)
+Finished Training
+Accuracy of network over the test set:65.28%
+Accuracy of plane : 69 %
+Accuracy of   car : 80 %
+Accuracy of  bird : 53 %
+Accuracy of   cat : 42 %
+Accuracy of  deer : 63 %
+Accuracy of   dog : 58 %
+Accuracy of  frog : 71 %
+Accuracy of horse : 65 %
+Accuracy of  ship : 75 %
+Accuracy of truck : 73 %
+
+model2:
+padding:3
+Net(
+  (conv1): Conv2d(3, 12, kernel_size=(3, 3), stride=(1, 1))
+  (conv2): Conv2d(12, 16, kernel_size=(3, 3), stride=(1, 1))
+  (conv3): Conv2d(16, 24, kernel_size=(3, 3), stride=(1, 1))
+  (pool): MaxPool2d(kernel_size=(2, 2), stride=(2, 2), dilation=(1, 1), ceil_mode=False)
+  (fc1): Linear(in_features=216, out_features=200, bias=True)
+  (fc2): Linear(in_features=200, out_features=84, bias=True)
+  (fc3): Linear(in_features=84, out_features=10, bias=True)
+)
+Accuracy of network over the test set:68.81%
+Accuracy of plane : 77 %
+Accuracy of   car : 83 %
+Accuracy of  bird : 63 %
+Accuracy of   cat : 54 %
+Accuracy of  deer : 61 %
+Accuracy of   dog : 50 %
+Accuracy of  frog : 72 %
+Accuracy of horse : 71 %
+Accuracy of  ship : 81 %
+Accuracy of truck : 71 %

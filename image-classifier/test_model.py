@@ -16,11 +16,6 @@ testloader = torch.utils.data.DataLoader(dataset=testset, batch_size=50, shuffle
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-print(trainloader.__len__())
-print(testloader.__len__())
-# images, labels = dataiter.next()
-# print(images[0].shape)
-
 class Net(nn.Module):
     def __init__(self, *args, **kwargs):
         super(Net, self).__init__()
@@ -60,31 +55,33 @@ for epoch in range(50):
 
 print('Finished Training')
 
+net.eval()
+
 correct = 0
 total = 0
 
-for epoch in range(50):
-    for data in testloader:
-        images, labels = data
-        outputs = net(Variable(images).cuda())
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted.cpu() == labels).sum()
+for data in testloader:
+    images, labels = data
+    outputs = net(Variable(images.cuda()))
+    _, predicted = torch.max(outputs.data, 1)
+    total += labels.size(0)
+    correct += (predicted.cpu() == labels).sum()
 
 print('Accuracy of network over the test set:{}'.format(correct/total))
 
-# class_correct = list(0. for i in range(10))
-# class_total = list(0. for i in range(10))
-# for data in testloader:
-#     images, labels = data
+class_correct = list(0. for i in range(10))
+class_total = list(0. for i in range(10))
+for data in testloader:
+    images, labels = data
+    outputs = net(Variable(images.cuda()))
+    _, predicted = torch.max(outputs.data, 1)
+    c = (predicted.cpu() == labels).squeeze()
+    for i in range(len(labels)):
+        label = labels[i]
+        class_correct[label] += c[i]
+        class_total[label] += 1
 
-#     outputs = net(Variable(images).cuda())
-#     _, predicted = torch.max(outputs.data, 1)
-#     c = (predicted.cpu() == labels).squeeze()
-#     for i in range(len(labels)):
-#         label = labels[i]
-#         class_correct[label] += c[i]
-#         class_total[label] += 1
 
-# for i in range(10):
-#     print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
+for i in range(10):
+    print('Accuracy of %5s : %2d %%' % (
+        classes[i], 100 * class_correct[i] / class_total[i]))
