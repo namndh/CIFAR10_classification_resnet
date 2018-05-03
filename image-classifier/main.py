@@ -50,7 +50,7 @@ def gpu_train(trainloader):
                     optimizer_sgd.step()
 
                     running_loss += loss.data[0]
-                    if i % 5000 == 4999:
+                    if i+1 % 5000 == 0:
                         print("iteration {} in batch {} in epoch {} loss:{}".format(i+1, iteration+1, epoch+1, running_loss/5000))
                 else:
                     continue
@@ -109,16 +109,16 @@ def cpu_train(trainloader):
 
                 optimizer_sgd.zero_grad()
                 outputs = models(images)
-                if i > 9998:
-                    print(labels)
-                    print(outputs)
+
                 loss = criterion_CEL(outputs, labels)
                 loss.backward()
                 optimizer_sgd.step()
 
-                running_loss += loss.data[0]
-                if i % 5000:
+                running_loss += loss.data
+                if i + 1 % 5000 == 0:
                     print("iteration {} in batch {} in epoch {} loss:{}".format(i+1, iteration+1, epoch+1, running_loss/5000))
+                    print(labels)
+                    print(outputs)
     train_time = time.time() - start_time
     start_time = time.time()
 
