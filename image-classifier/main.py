@@ -20,6 +20,12 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 padding = nn.ConstantPad2d((3,3,3,3), 0)
 
+for i, data in enumerate(trainloader, 0):
+    images, labels = data
+    print(labels)
+    if i > 1:
+        break
+
 def gpu_train(trainloader):
     models = Net()
     models.cuda()
@@ -103,6 +109,9 @@ def cpu_train(trainloader):
 
                 optimizer_sgd.zero_grad()
                 outputs = models(images)
+                if i > 9998:
+                    print(labels)
+                    print(outputs)
                 loss = criterion_CEL(outputs, labels)
                 loss.backward()
                 optimizer_sgd.step()
@@ -146,5 +155,5 @@ def cpu_train(trainloader):
     print("Elapsed time with GPU trained network:{} and evaluating time is:{}".format(train_time, elapsed_time))
 
 
-gpu_train(trainloader)
-# cpu_train(trainloader)
+# gpu_train(trainloader)
+cpu_train(trainloader)
