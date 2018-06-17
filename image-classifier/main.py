@@ -1,159 +1,141 @@
 import torch 
-import torchvision
-import torchvision.transforms as transforms
+import torchvision 
+import torchvision.transforms as transforms 
+# import torchvision.models as models
+from models import CNN 
 from torch.autograd import Variable
 import torch.nn as nn 
 import torch.nn.functional as F 
 import torch.optim as optim
+import torch.utils.data
 import time 
-from models import Net
-import constants
+# from utils import progress_bar
+import os
+import argparse
 
-transformer = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))])
-trainset = torchvision.datasets.CIFAR10(root='/home/t3min4l/workspace/pytorch-tutorial/data', train=True, download=True, transform=transformer)
-trainloader = torch.utils.data.DataLoader(dataset=trainset, batch_size=constants.BATCH_SIZE , sampler=None, shuffle=True, batch_sampler=None)
 
-testset = torchvision.datasets.CIFAR10(root='/home/t3min4l/workspace/pytorch-tutorial/data', train=False, download=True, transform=transformer)
-testloader = torch.utils.data.DataLoader(dataset=testset, batch_size=1, shuffle=False, batch_sampler=None)
+parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+args = parser.parse_args()
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+EPOCH_NUM = 0
+best_acc = 0
+print(torch.cuda.current_device())
+transform_train = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+trainset = torchvision.datasets.CIFAR10(root='/home/t3min4l/workspace/pytorch-tutorial/data', train=True, download=True, transform=transform_train)
+trainloader = torch.utils.data.DataLoader(dataset=trainset, batch_size=128, sampler=None, shuffle=True, batch_sampler=None)
+
+testset = torchvision.datasets.CIFAR10(root='/home/t3min4l/workspace/pytorch-tutorial/data', train=False, download=True, transform=transform_test)
+testloader = torch.utils.data.DataLoader(dataset=testset, batch_size=100, sampler=None, shuffle=True, batch_sampler=None)
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-padding = nn.ConstantPad2d((3,3,3,3), 0)
+net = CNN()
+print(net)
+net.to(device)
 
-for i, data in enumerate(trainloader, 0):
-    images, labels = data
-    print(labels)
-    if i > 1:
-        break
+if device == 'cuda':
+    net = torch.nn.DataParallel(net)
+    cudnn.benchmark = True
 
-def gpu_train(trainloader):
-    models = Net()
-    models.cuda()
-    print(models)
-    criterion_CEL = nn.CrossEntropyLoss()
-    optimizer_sgd = optim.SGD(models.parameters(), lr=0.001, momentum=0.9)
+if args.resume:
+    # Load checkpoint.
+    print('==> Resuming from checkpoint..')
+    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load('./checkpoint/ckpt.t7')
+    net.load_state_dict(checkpoint['net'])
+    best_acc = checkpoint['acc']
+    EPOCH_NUM = checkpoint['epoch']
 
-    start_time = time.time()
-    for epoch in range(constants.EPOCHS):
-        for iteration in range(constants.ITERATIONS):
-            running_loss = 0 
-            for i, data in enumerate(trainloader, 0):
-                images, labels = data
-                images = padding(images)
-                if (images.shape[2], images.shape[3]) == (38,38):
-                    images, labels = images.cuda(), Variable(labels.cuda())
 
-                    optimizer_sgd.zero_grad()
-                    outputs = models(images)
-                    loss = criterion_CEL(outputs, labels)
-                    loss.backward()
-                    optimizer_sgd.step()
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 
-                    running_loss += loss.data[0]
-                    if i+1 % 5000 == 0:
-                        print("iteration {} in batch {} in epoch {} loss:{}".format(i+1, iteration+1, epoch+1, running_loss/5000))
-                else:
-                    continue
-    train_time = time.time() - start_time
-    start_time = time.time()
 
-    models.eval()
+
+
+#print(net)
+
+def train(epoch):
+    print('\nEpoch: %d' % epoch)
+    net.train()
+    train_loss = 0
     correct = 0
-    total = 0 
-    for data in testloader:
-        images, labels = data
-        images = padding(images)
-        outputs = models(images.cuda())
+    total = 0
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = net(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
 
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted.cpu() == labels).sum()
-    print('Accuracy over the network on the 10k test images training on GPU(1060 6gb):{}%'.format(100*correct/total))
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
 
-    class_correct = list(0. for i in range(len(classes)))
-    class_total = list(0. for i in range(len(classes)))
-    for data in testloader:
-        images, labels = data
-        images = padding(images)
-        outputs = models(images.cuda())
+    print('Loss: %.3f | Acc: %.3f%% (%d/%d)' % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-        _, predicted = torch.max(outputs.data, 1)
-        c = (predicted.cpu() == labels).squeeze()
-        for i in range(len(labels)):
-            label = labels[i]
-            class_correct[label] += c[i]
-            class_total[label] += 1
+        # progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+        #     % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-    elapsed_time = time.time() - start_time
-    print("GPU Training:\n")
-    for i in range(len(classes)):
-        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
 
-    print("Elapsed time with GPU trained network:{} and evaluating time is:{}".format(train_time, elapsed_time))
-
-    
-def cpu_train(trainloader):
-    models = Net()
-    print(models)
-    criterion_CEL = nn.CrossEntropyLoss()
-    optimizer_sgd = optim.SGD(models.parameters(), lr=0.001, momentum=0.9)
-
-    start_time = time.time()
-    for epoch in range(constants.EPOCHS):
-        for iteration in range(constants.ITERATIONS):
-            running_loss = 0 
-            for i, data in enumerate(trainloader, 0):
-                images, labels = data
-                images = padding(images)
-                images, labels = images, Variable(labels)
-
-                optimizer_sgd.zero_grad()
-                outputs = models(images)
-
-                loss = criterion_CEL(outputs, labels)
-                loss.backward()
-                optimizer_sgd.step()
-
-                running_loss += loss.data
-                if i + 1 % 5000 == 0:
-                    print("iteration {} in batch {} in epoch {} loss:{}".format(i+1, iteration+1, epoch+1, running_loss/5000))
-                    print(labels)
-                    print(outputs)
-    train_time = time.time() - start_time
-    start_time = time.time()
-
-    models.eval()
+def test(epoch):
+    global best_acc 
+    net.eval()
+    test_loss = 0
     correct = 0
-    total = 0 
-    for data in testloader:
-        images, labels = data
-        outputs = models(Variable(images))
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(testloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
 
-        _, predicted = torch.max()
-        total += labels.size(0)
-        correct += (predicted == labels).sum()
-    print('Accuracy over the network on the 10k test images training on GPU(1060 6gb):{}%'.format(100*correct/total))
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
 
-    class_correct = list(0. for i in range(len(classes)))
-    class_total = list(0. for i in range(len(classes)))
-    for data in testloader:
-        images, labels = data
-        outputs = models(Variable(images))
+    print('Loss: %.3f | Acc: %.3f%% (%d/%d)' % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))       
+            # progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            #   % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+    acc = 100.*correct/total 
+    if acc > best_acc:
+        print('Saving...')
+        state = {
+            'net':net.state_dict(),
+            'acc':acc, 
+            'epoch':epoch,
+        }
 
-        _, predicted = torch.max(outputs.data, 1)
-        c = (predicted == labels).squeeze()
-        for i in range(len(labels)):
-            label = labels[i]
-            class_correct[label] += c[i]
-            class_total[label] += 1
-            
-    elapsed_time = time.time() - start_time
-    print("GPU Training:\n")
-    for i in range(len(classes)):
-        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
-
-    print("Elapsed time with GPU trained network:{} and evaluating time is:{}".format(train_time, elapsed_time))
+        if not os.path.isdir('checkpoint'):
+            os.mkdir('checkpoint')
+        torch.save(state, './checkpoint/ckpt.t7')
+        best_acc = acc
 
 
-# gpu_train(trainloader)
-cpu_train(trainloader)
+if EPOCH_NUM >= 150:
+    EPOCH_MAX = EPOCH_NUM + 100
+else:
+    EPOCH_MAX = EPOCH_NUM + 150
+
+for epoch in range(EPOCH_NUM, EPOCH_MAX):
+    train(epoch)
+    test(epoch)
+
+
