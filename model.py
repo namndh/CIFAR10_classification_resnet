@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import constants
+from torchvision.models import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+import torch.optim as optim
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -89,23 +91,83 @@ class ResNet(nn.Module):
         return out
 
 
-def ResNet18():
+def myResNet18():
     return ResNet(BasicBlock, [2,2,2,2])
 
-def ResNet34():
+def myResNet34():
     return ResNet(BasicBlock, [3,4,6,3])
 
-def ResNet50():
+def myResNet50():
     return ResNet(Bottleneck, [3,4,6,3])
 
-def ResNet101():
+def myResNet101():
     return ResNet(Bottleneck, [3,4,23,3])
 
-def ResNet152():
+def myResNet152():
     return ResNet(Bottleneck, [3,8,36,3])
 
 
-def test():
-    net = ResNet18()
-    y = net(torch.randn(1,3,32,32))
-    print(y.size())
+class CustomModel(nn.Module):
+    """Custom model with pretrained ResNets in ImageNet"""
+    def __init__(self, pretrained, depth=34, num_classes=constants.NUM_LABELS):
+        super(CustomModel, self).__init__()
+        self.pretrained = pretrained
+        self.depth = depth
+        self.num_classes = num_classes
+        assert self.depth in constants.NETWORK_DEPTH, "Invalid input!"
+        if self.depth = 18:
+            self.pretrained_model = ResNet18(pretrained=self.pretrained)
+        elif self.depth = 34:
+            self.pretrained_model = ResNet34(pretrained=self.pretrained)
+        elif self.depth = 50:
+            self.pretrained_model = ResNet50(pretrained=self.pretrained)
+        elif self.depth = 101:
+            self.pretrained_model = ResNet101(pretrained=self.pretrained)
+        elif self.depth = 152:
+            self.pretrained_model = ResNet152(pretrained=self.pretrained)
+
+        self.num_ftrs = self.pretrained_model.fc.in_features
+
+        self.shared = nn.Sequential(*list(self.pretrained_model.children())[:-1])
+        self.target = nn.Sequential(nn.Linear(self.num_ftrs, num_classes))
+
+    def forward(self, x):
+        x = self.shared(X)
+        x = torch.squeeze(x)
+        return self.target(x)
+
+    def frozen_until(self, to_layer):
+        print('Frozen pretrained model to {}-th layer'.format(to_layer))
+
+        child_counter = 0
+        for child in self.shared.children():
+            if child_counter <= to_layer:
+                print('Child ', child_counter, ' was frozen')
+                for param in child.parameters():
+                    param.require_grad = False
+            else:
+                print('Child ', child_counter, ' was frozen')
+                for param in child.param.parameters():
+                    param.require_grad = True
+            child_counter += 1
+
+def net_frozen(args, model):
+    print('=================================================================')
+
+    model.frozen_until(args.frozen)
+    init_lr = args.init_lr
+    if args.optim == 'adam':
+        optimizer = optim.Adam(filter(lambda p: p.require_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay)
+    if args.optim == 'sgd':
+        optimizer = optim.SGD(filter(lambda p: p.require_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay, momentum=0.9)
+    print('=================================================================')
+
+    return model, optimizer
+
+
+
+
+
+
+
+
