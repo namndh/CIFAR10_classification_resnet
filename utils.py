@@ -42,5 +42,4 @@ def train_val_split(dataset, ratio=0.2):
     images = list(images)
     labels = list(labels)
     train, val, y_train, y_val = train_test_split(images, labels, test_size=ratio, random_state=42, shuffle=True)
-    return list(zip(train, y_train)), list(zip((val, y_val))
-
+    return list(zip(train, y_train)), list(zip(val, y_val))

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import constants
-from torchvision.models import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
 import torch.optim as optim
 
 class BasicBlock(nn.Module):
@@ -109,22 +109,22 @@ def myResNet152():
 
 class CustomModel(nn.Module):
     """Custom model with pretrained ResNets in ImageNet"""
-    def __init__(self, pretrained, depth=34, num_classes=constants.NUM_LABELS):
+    def __init__(self, pretrained, depth, num_classes=constants.NUM_LABELS):
         super(CustomModel, self).__init__()
         self.pretrained = pretrained
         self.depth = depth
         self.num_classes = num_classes
         assert self.depth in constants.NETWORK_DEPTH, "Invalid input!"
-        if self.depth = 18:
-            self.pretrained_model = ResNet18(pretrained=self.pretrained)
-        elif self.depth = 34:
-            self.pretrained_model = ResNet34(pretrained=self.pretrained)
-        elif self.depth = 50:
-            self.pretrained_model = ResNet50(pretrained=self.pretrained)
-        elif self.depth = 101:
-            self.pretrained_model = ResNet101(pretrained=self.pretrained)
-        elif self.depth = 152:
-            self.pretrained_model = ResNet152(pretrained=self.pretrained)
+        if self.depth == 18:
+            self.pretrained_model = resnet18(pretrained=self.pretrained)
+        elif self.depth == 34:
+            self.pretrained_model = resnet34(pretrained=self.pretrained)
+        elif self.depth == 50:
+            self.pretrained_model = resnet50(pretrained=self.pretrained)
+        elif self.depth == 101:
+            self.pretrained_model = resnet101(pretrained=self.pretrained)
+        elif self.depth == 152:
+            self.pretrained_model = resnet152(pretrained=self.pretrained)
 
         self.num_ftrs = self.pretrained_model.fc.in_features
 
@@ -144,22 +144,22 @@ class CustomModel(nn.Module):
             if child_counter <= to_layer:
                 print('Child ', child_counter, ' was frozen')
                 for param in child.parameters():
-                    param.require_grad = False
+                    param.requires_grad = False
             else:
-                print('Child ', child_counter, ' was frozen')
-                for param in child.param.parameters():
-                    param.require_grad = True
+                print('Child ', child_counter, ' was not frozen')
+                for param in child.parameters():
+                    param.requires_grad = True
             child_counter += 1
 
 def net_frozen(args, model):
     print('=================================================================')
 
-    model.frozen_until(args.frozen)
+    model.frozen_until(args.freeze_to)
     init_lr = args.init_lr
     if args.optim == 'adam':
-        optimizer = optim.Adam(filter(lambda p: p.require_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay)
     if args.optim == 'sgd':
-        optimizer = optim.SGD(filter(lambda p: p.require_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay, momentum=0.9)
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay, momentum=0.9)
     print('=================================================================')
 
     return model, optimizer
