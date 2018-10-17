@@ -24,7 +24,7 @@ train_val_set = torchvision.datasets.CIFAR10(root='./data', train=True, download
 train_val_set = list(train_val_set)
 train_val_set_sorted = sorted(train_val_set, key=lambda tup:tup[1])
 # shuffle(train_val_set_sorted)
-train_set = train_val_set_sorted[0:4000] + train_val_set_sorted[5000:9000]
+train_set = train_val_set_sorted[0:4000] + train_val_set_sorted[5000:9000] + train_val_set_sorted[10000:14000] + train_val_set_sorted[15000:19000]
 
 
 _, labels = list(zip(*train_val_set))
