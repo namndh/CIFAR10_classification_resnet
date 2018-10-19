@@ -213,7 +213,7 @@ if args.train:
 	with open(constants.VAL_SET, 'rb') as val_set_bin:
 		val_set = pickle.load(val_set_bin)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=False, batch_sampler=None)
+	train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
 	val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
 	for epoch in range(start_epoch + args.num_epochs):
 		train_validate(epoch, optimizer, model, criterion, train_loader, validate_loader)

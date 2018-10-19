@@ -107,62 +107,6 @@ def myResNet152():
     return ResNet(Bottleneck, [3,8,36,3])
 
 
-class CustomModel(nn.Module):
-    """Custom model with pretrained ResNets in ImageNet"""
-    def __init__(self, pretrained, depth, num_classes=constants.NUM_LABELS):
-        super(CustomModel, self).__init__()
-        self.pretrained = pretrained
-        self.depth = depth
-        self.num_classes = num_classes
-        assert self.depth in constants.NETWORK_DEPTH, "Invalid input!"
-        if self.depth == 18:
-            self.pretrained_model = resnet18(pretrained=self.pretrained)
-        elif self.depth == 34:
-            self.pretrained_model = resnet34(pretrained=self.pretrained)
-        elif self.depth == 50:
-            self.pretrained_model = resnet50(pretrained=self.pretrained)
-        elif self.depth == 101:
-            self.pretrained_model = resnet101(pretrained=self.pretrained)
-        elif self.depth == 152:
-            self.pretrained_model = resnet152(pretrained=self.pretrained)
-
-        self.num_ftrs = self.pretrained_model.fc.in_features
-
-        self.shared = nn.Sequential(*list(self.pretrained_model.children())[:-1])
-        self.target = nn.Sequential(nn.Linear(self.num_ftrs, num_classes))
-
-    def forward(self, x):
-        x = self.shared(X)
-        x = torch.squeeze(x)
-        return self.target(x)
-
-    def frozen_until(self, to_layer):
-        print('Frozen pretrained model to {}-th layer'.format(to_layer))
-
-        child_counter = 0
-        for child in self.shared.children():
-            if child_counter <= to_layer:
-                print('Child ', child_counter, ' was frozen')
-                for param in child.parameters():
-                    param.requires_grad = False
-            else:
-                print('Child ', child_counter, ' was not frozen')
-                for param in child.parameters():
-                    param.requires_grad = True
-            child_counter += 1
-
-def net_frozen(args, model):
-    print('=================================================================')
-
-    model.frozen_until(args.freeze_to)
-    init_lr = args.init_lr
-    if args.optim == 'adam':
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay)
-    if args.optim == 'sgd':
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=init_lr, weight_decay=args.weight_decay, momentum=0.9)
-    print('=================================================================')
-
-    return model, optimizer
 
 
 
