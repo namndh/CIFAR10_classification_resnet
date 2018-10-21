@@ -22,13 +22,12 @@ parser.add_argument('--train', action='store_true', help='train the model')
 parser.add_argument('--predict', action='store_true', help='predict input images')
 parser.add_argument('--predict_option', default=0, type=int, choices=[0, 1], help='0: predict with best acc model on validate set -- 1: predict with convergence model on train set')
 parser.add_argument('--inspect', action='store_true', help='inspect the model')
-parser.add_argument('--depth', default=18, choices = [14, 34, 50, 101, 152], type=int, help='depth of model')
+parser.add_argument('--depth', default=18, choices = [18, 34, 50, 101, 152], type=int, help='depth of model')
 parser.add_argument('--weight_decay', default=5e-6, type=float, help='weight decay')
 parser.add_argument('--optim', default='adam', choices=['adam', 'sgd'])
 parser.add_argument('--batch_size', default=256, type=int, help='batch size')
 parser.add_argument('--num_epochs', default=250, type=int, help='Number of epochs in training')
 parser.add_argument('--drop_out', default=0.5, type=float)
-parser.add_argument('--option', default=0, type=int, choices=[0, 1], help='0: from pretrained ResNet --- 1: from scratch')
 parser.add_argument('--freeze_to', default=8, type=int, help='freeze model to chosen layers')
 parser.add_argument('--check_after', default=1, type=int, help='Validate the model after how many epoch')
 parser.add_argument('--train_ratio', default=0.8, type=float, help='ration of train and validate set')
@@ -42,16 +41,15 @@ start_epoch = 0
 save_acc = 0
 save_loss = 0
 
+network_depth = [18, 34, 50, 101, 152]
+
 transform_train = transforms.Compose([
-    transforms.CenterCrop(constants.INPUT_SIZE),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
 ])
 
 transform_test = transforms.Compose([
-	transforms.Scale(constants.INPUT_SIZE),
-	transforms.CenterCrop(constants.INPUT_SIZE),
     transforms.ToTensor(),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
 ])
@@ -100,7 +98,9 @@ def train_validate(epoch, optimizer, model, criterion, train_loader, validate_lo
 	print("================================================\n")
 	print('=> Training in epoch {} at LR {:.3}'.format(epoch + 1, lr))
 	model.train()
-	train_loss, train_correct, total = 0
+	train_loss = 0
+	train_correct = 0
+	total = 0
 
 
 	for idx, (images, labels) in enumerate(train_loader):
@@ -195,14 +195,29 @@ def predict(model, test_loader, convergence):
 	for i in range(len(classes)):
 		print('Accuracy of {} : {:.3}'.format(classes[i], 100*class_correct[classes[i]]/class_total[classes[i]]))
 
-if args.option == 0:
-	pretrained = True
-else:
-	pretrained = False
-model = models.CustomModel(pretrained=pretrained, depth=args.depth)
+if args.depth in network_depth:
+	if args.depth == 18:
+		model = models.myResNet18()
+		model.to(device)
+	if args.depth == 34:
+		model = models.myResNet34()
+		model.to(device)
+	if args.depth == 50:
+		model = models.myResNet50()
+		model.to(device)
+	if args.depth == 101:
+		model = models.myResNet101()
+		model.to(device)
+	if args.depth == 152:
+		model = models.myResNet152()
+		model.to(device)
 criterion = nn.CrossEntropyLoss()
-model, optimizer = models.net_frozen(args, model)
-model.to(device)
+if args.optim == 'sgd':
+	optimizer = optim.SGD(model.parameters(), lr=args.init_lr, weight_decay=args.weight_decay, momentum=0.9)
+elif args.optim == 'adam':
+	optimizer = optim.Adam(model.parameters(), lr=args.init_lr, weight_decay=args.weight_decay)
+
+
 
 if args.train:
 	print(args)
@@ -216,7 +231,7 @@ if args.train:
 	train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
 	val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
 	for epoch in range(start_epoch + args.num_epochs):
-		train_validate(epoch, optimizer, model, criterion, train_loader, validate_loader)
+		train_validate(epoch, optimizer, model, criterion, train_loader, val_loader)
 
 if args.predict:
 	test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transforms=transform_test)

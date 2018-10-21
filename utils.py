@@ -2,10 +2,12 @@ import os
 import sys
 import time
 import math
+import pickle
 
 import torch.nn as nn
 import torch.nn.init as init
-from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, Dataset
+import torchvision.transforms as transforms
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -36,10 +38,35 @@ def init_params(net):
             if m.bias:
                 init.constant(m.bias, 0)
 
-def train_val_split(dataset, ratio=0.2):
-    dataset = list(dataset)
-    images, labels = zip(*dataset)
-    images = list(images)
-    labels = list(labels)
-    train, val, y_train, y_val = train_test_split(images, labels, test_size=ratio, random_state=42, shuffle=True)
-    return list(zip(train, y_train)), list(zip(val, y_val))
+class myDataSet(Dataset):
+    """Custom dataset loader"""
+    def __init__(self, train, root_dir, transform=None):
+        assert os.path.isdir(root_dir), 'ERROR: Data directory is not found!'
+        self.train = train
+        self.root_dir = root_dir
+        self.transform = transform
+        if train:
+            train_set_path = os.path.join(self.root_dir, 'train_set.b') 
+            assert os.path.isfile(train_set_path), 'ERROR: Train dataset is not found!'
+            with open(train_set_path, 'rb') as train_set_bin:
+                self.dataset = pickle.load(train_set_bin)
+        else:
+            val_set_path = os.path.join(self.root_dir, 'val_set.b')
+            assert os.path.isfile(val_set_path), 'ERROR: Val dataset is not found!'
+            with open(val_set_path, 'rb') as val_set_bin:
+                self.dataset = pickle.load(val_set_bin)
+        self.images, self.labels = zip(*self.dataset)
+        self.images = list(self.images)
+        self.labels = list(self.labels)
+                
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        label = self.labels[idx]
+
+        if transform:
+            image = self.transform(image)
+
+        return image, label
