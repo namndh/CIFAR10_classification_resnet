@@ -16,20 +16,20 @@ import utils
 import constants
 
 parser = argparse.ArgumentParser(description='CIFAR10 Classifier')
-parser.add_argument('--init_lr', default=1e-2, type=float, help='learning rate')
-parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--train', action='store_true', help='train the model')
-parser.add_argument('--predict', action='store_true', help='predict input images')
+parser.add_argument('--init_lr', default=1e-2, type=float, help='Learning rate - default: 1e-2')
+parser.add_argument('--resume', '-r', action='store_true', help='Resume from checkpoint')
+parser.add_argument('--train', action='store_true', help='Train the model')
+parser.add_argument('--predict', action='store_true', help='Predict input images')
 parser.add_argument('--predict_option', default=0, type=int, choices=[0, 1], help='0: predict with best acc model on validate set -- 1: predict with convergence model on train set')
-parser.add_argument('--inspect', action='store_true', help='inspect the model')
-parser.add_argument('--depth', default=18, choices = [18, 34, 50, 101, 152], type=int, help='depth of model')
-parser.add_argument('--weight_decay', default=5e-6, type=float, help='weight decay')
+parser.add_argument('--inspect', action='store_true', help='Inspect the model')
+parser.add_argument('--depth', default=18, choices = [18, 34, 50, 101, 152], type=int, help='Depth of model - default: 18')
+parser.add_argument('--weight_decay', default=5e-6, type=float, help='Weight decay - default: 5e-6 ')
 parser.add_argument('--optim', default='sgd', choices=['adam', 'sgd'])
-parser.add_argument('--batch_size', default=256, type=int, help='batch size')
-parser.add_argument('--num_epochs', default=250, type=int, help='Number of epochs in training')
+parser.add_argument('--batch_size', default=256, type=int, help='Batch size - default: 256')
+parser.add_argument('--num_epochs', default=250, type=int, help='Number of epochs in training - default : 250')
 parser.add_argument('--drop_out', default=0.5, type=float)
-parser.add_argument('--check_after', default=1, type=int, help='Validate the model after how many epoch')
-parser.add_argument('--train_ratio', default=0.8, type=float, help='ration of train and validate set')
+parser.add_argument('--check_after', default=1, type=int, help='Validate the model after how many epoch - default : 1')
+parser.add_argument('--train_ratio', default=0.8, type=float, help='ration of train and validate set - default: 0.8')
 args = parser.parse_args()
 print(torch.cuda.is_available())
 
@@ -68,9 +68,8 @@ def exp_lr_schedule(args, optimizer, epoch):
 
 	return optimizer, lr
 
-def save_convergence_model(save_loss, epoch_loss, model, epoch):
-	save_loss = epoch_loss
-	print('Saving convergence model at epoch {} with loss {}'.format(epoch, epoch_loss))
+def save_convergence_model(save_loss, model, epoch):
+	print('Saving convergence model at epoch {} with loss {}'.format(epoch, save_loss))
 	state = {
 		'model' : model.state_dict(),
 		'loss'	: save_loss,
@@ -119,11 +118,14 @@ def train_validate(epoch, optimizer, model, criterion, train_loader, validate_lo
 	epoch_correct = train_correct/total
 
 	global save_loss
+	print(save_loss)
 	if epoch == 0:
-		save_convergence_model(save_loss, epoch_loss, model, epoch)
+		save_loss = epoch_loss
+		save_convergence_model(save_loss, model, epoch)
 	else:
 		if epoch_loss < save_loss:
-			save_convergence_model(save_loss, epoch_loss, model, epoch)
+			save_loss = epoch_loss
+			save_convergence_model(save_loss, model, epoch)
 
 	print('Loss : {} || Correct : {}'.format(epoch_loss, epoch_correct))
 
@@ -151,8 +153,10 @@ def train_validate(epoch, optimizer, model, criterion, train_loader, validate_lo
 		print('Accuracy : {}%'.format(validate_acc))
 
 		global save_acc
+		print(save_acc)
 		if validate_acc > save_acc:
-			save_best_acc_model(save_acc, validate_acc, model, epoch)
+			save_acc = validate_acc
+			save_best_acc_model(save_acc, model, epoch)
 
 def predict(model, test_loader, convergence):
 	assert os.path.isdir('./checkpoint'), 'Error: model is not availabel!'

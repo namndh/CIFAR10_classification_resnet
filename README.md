@@ -8,5 +8,6 @@
 ## Models:
  - ResNets - self-implemented based on size of input image (32x32)
 ## Results:
- - Accuracy:
- - 
+ - Accuracy: 87.2% - ResNet34, SGD (init_lr = 0.01)
+## to-do:
+ - Hypertunning to increase acc.
