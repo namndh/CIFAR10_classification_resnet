@@ -6,7 +6,7 @@
  - Active virtual environment
  - Install and dependencies and requirements: `pip install -r requirements.txt`
 ## Models:
- - ResNets 
+ - ResNets - self-implemented based on size of input image (32x32)
 ## Results:
  - Accuracy:
  - 

@@ -24,16 +24,16 @@ parser.add_argument('--predict_option', default=0, type=int, choices=[0, 1], hel
 parser.add_argument('--inspect', action='store_true', help='inspect the model')
 parser.add_argument('--depth', default=18, choices = [18, 34, 50, 101, 152], type=int, help='depth of model')
 parser.add_argument('--weight_decay', default=5e-6, type=float, help='weight decay')
-parser.add_argument('--optim', default='adam', choices=['adam', 'sgd'])
+parser.add_argument('--optim', default='sgd', choices=['adam', 'sgd'])
 parser.add_argument('--batch_size', default=256, type=int, help='batch size')
 parser.add_argument('--num_epochs', default=250, type=int, help='Number of epochs in training')
 parser.add_argument('--drop_out', default=0.5, type=float)
-parser.add_argument('--freeze_to', default=8, type=int, help='freeze model to chosen layers')
 parser.add_argument('--check_after', default=1, type=int, help='Validate the model after how many epoch')
 parser.add_argument('--train_ratio', default=0.8, type=float, help='ration of train and validate set')
 args = parser.parse_args()
+print(torch.cuda.is_available())
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 print('Available device is:{}'.format(device))
 print(torch.cuda.current_device)
 
@@ -58,7 +58,7 @@ classes = ('airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'hors
 
 def exp_lr_schedule(args, optimizer, epoch):
 	init_lr = args.init_lr
-	lr_decay_epoch = 4
+	lr_decay_epoch = 50
 	weight_decay = args.weight_decay
 	lr = init_lr * (0.6 ** (min(epoch, 200) // lr_decay_epoch))
 
@@ -80,15 +80,14 @@ def save_convergence_model(save_loss, epoch_loss, model, epoch):
 		os.path.mkdir('./checkpoint')
 	torch.save(state, './checkpoint/convergence.t7')
 
-def save_best_acc_model(save_acc, epoch_acc, model, epoch):
-	save_acc = epoch_acc
+def save_best_acc_model(save_acc, model, epoch):
 	print('Saving best acc model at epoch {} with acc in validation set: {}'.format(epoch, save_acc))
 	state = {
 		'model'	: model.state_dict(),
 		'acc'	: save_acc,
-		'epoch' : epoch
-
+		'epoch' : epoch,
 	}
+
 	if not os.path.isdir('./checkpoint'):
 		os.path.mkdir('./checkpoint')
 	torch.save(state, './checkpoint/best_acc_model.t7')
@@ -101,7 +100,6 @@ def train_validate(epoch, optimizer, model, criterion, train_loader, validate_lo
 	train_loss = 0
 	train_correct = 0
 	total = 0
-
 
 	for idx, (images, labels) in enumerate(train_loader):
 		images, labels = images.to(device), labels.to(device)
@@ -122,10 +120,10 @@ def train_validate(epoch, optimizer, model, criterion, train_loader, validate_lo
 
 	global save_loss
 	if epoch == 0:
-		save_convergence_model(save_loss, epoch_loss, model)
+		save_convergence_model(save_loss, epoch_loss, model, epoch)
 	else:
-		if epoch_loss < best_loss:
-			save_convergence_model(save_loss, epoch_loss, model)
+		if epoch_loss < save_loss:
+			save_convergence_model(save_loss, epoch_loss, model, epoch)
 
 	print('Loss : {} || Correct : {}'.format(epoch_loss, epoch_correct))
 
@@ -134,7 +132,10 @@ def train_validate(epoch, optimizer, model, criterion, train_loader, validate_lo
 		print('==============================================\n')
 		print('==> Validate in epoch {} at LR {:.3}'.format(epoch + 1, lr))
 		model.eval()
-		validate_loss, validate_acc, validate_correct, total = 0
+		validate_loss = 0
+		validate_acc = 0
+		validate_correct = 0
+		total = 0
 		for idx, (images, labels) in enumerate(validate_loader):
 			images, labels = images.to(device), labels.to(device)
 			optimizer.zero_grad()
@@ -166,11 +167,13 @@ def predict(model, test_loader, convergence):
 		model.load_state_dict(checkpoint['model'])
 		acc = checkpoint['acc']
 		epoch = checkpoint['epoch']		
-		print('Model used to predict has best acc {:.3} on validate set at epoch {}'.format(acc, epoch))
+		print('Model used to predict has best acc {:.3}% on validate set at epoch {}'.format(acc, epoch))
 
 	torch.set_grad_enabled(False)
 	model.eval()
-	c, test_correct, total = 0
+	c= 0
+	test_correct = 0
+	total = 0
 	class_correct = dict()
 	class_total = dict()
 	for _class in classes:
@@ -179,21 +182,23 @@ def predict(model, test_loader, convergence):
 
 	for idx, (images, labels) in enumerate(test_loader):
 		images, labels = images.to(device), labels.to(device)
+		# print(len(labels))
 		outputs = model(images)
 
 		_, predicted = outputs.max(1)
 		test_correct += predicted.eq(labels).sum().item()
 		total += labels.size(0)
 		c = (predicted == labels).squeeze()
-		for i in range(args.batch_size):
+		for i in range(len(labels)):
 			label = labels[i]
 			class_correct[classes[label]] += c[i].item()
 			class_total[classes[label]] += 1
 
-	print('Accuracy of model in predicting: {}'.format(test_correct/idx))
+	print('Accuracy of model in predicting: {}%'.format(test_correct/total*100))
 
 	for i in range(len(classes)):
-		print('Accuracy of {} : {:.3}'.format(classes[i], 100*class_correct[classes[i]]/class_total[classes[i]]))
+		print('Accuracy of {} : {:.3}%'.format(classes[i], 100*class_correct[classes[i]]/class_total[classes[i]]))
+
 
 if args.depth in network_depth:
 	if args.depth == 18:
@@ -220,13 +225,11 @@ elif args.optim == 'adam':
 
 
 if args.train:
-	print(args)
+	# print(args)
 
-	with open(constants.TRAIN_SET, 'rb') as train_set_bin:
-		train_set = pickle.load(train_set_bin)
+	train_set = utils.myDataSet(train=True, root_dir=constants.DATA_PATH, transform=transform_train)
+	val_set	= utils.myDataSet(train=False, root_dir=constants.DATA_PATH, transform=transform_test)
 
-	with open(constants.VAL_SET, 'rb') as val_set_bin:
-		val_set = pickle.load(val_set_bin)
 
 	train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
 	val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
@@ -234,7 +237,7 @@ if args.train:
 		train_validate(epoch, optimizer, model, criterion, train_loader, val_loader)
 
 if args.predict:
-	test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transforms=transform_test)
+	test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=True, batch_sampler=None)
 	if args.predict_option == 0:
 		conv = False

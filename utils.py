@@ -66,7 +66,7 @@ class myDataSet(Dataset):
         image = self.images[idx]
         label = self.labels[idx]
 
-        if transform:
+        if self.transform:
             image = self.transform(image)
 
         return image, label
